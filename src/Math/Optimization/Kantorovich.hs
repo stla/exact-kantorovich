@@ -1,6 +1,8 @@
 module Math.Optimization.Kantorovich
-  ( someFunc
+  ( 
+    kantorovich
   ) where
+import           Prelude                hiding   ( EQ )
 import           Data.Map.Strict                 ( 
                                                    Map
                                                  , fromList
@@ -15,20 +17,37 @@ import           Linear.Simplex.Types            (
                                                    Var
                                                  , SimplexNum
                                                  , FeasibleSystem ( .. )
-                                                 , Result
+                                                 , Result ( .. )
                                                  , VarLitMap
                                                  , VarLitMapSum
                                                  , PolyConstraint ( .. )
                                                  , ObjectiveFunction ( .. )
-                                                 , Equation ( .. )
                                                  , DictValue ( .. )
                                                  , Dict ( .. )
+                                                 )
+import           Linear.Simplex.Util             (
+                                                   extractObjectiveValue
                                                  )
 
 type IntIntMap = Map (Int, Int) Rational
 
 stack :: Int -> (Int, Int) -> Int
 stack ncol (i, j) = (i - 1) * ncol + j
+
+unstack :: Int -> Int -> (Int, Int)
+unstack ncol k = (q + 1, r + 1)
+  where
+    (q, r) = quotRem k ncol
+
+getObjectiveValueAndSolution :: Maybe Result -> Int -> (Maybe Rational, Maybe (Map (Int, Int) Rational))
+getObjectiveValueAndSolution maybeResult ncol = 
+  (
+    extractObjectiveValue maybeResult
+  , fmap f maybeResult
+  )
+  where
+    f :: Result -> Map (Int, Int) Rational
+    f (Result var varLitMap) = mapKeys (unstack ncol) (DM.delete var varLitMap)
 
 kantorovich :: 
   [Rational] -> [Rational] -> ((Int, Int) -> Rational) -> IO (Maybe Result)
@@ -60,13 +79,13 @@ constraints mu nu =
     positivityConstraints = 
       [ GEQ { lhs = singleton (stack n (i, j)) 1, rhs = 0 } 
             | i <- rows, j <- cols ]
-    rowMarginsConstraints = concat
+    rowMarginsConstraints = 
       [ EQ { 
              lhs = fromList [ (stack n (i, j), 1) | j <- cols ]
            , rhs = mu !! (i-1) 
            } 
         | i <- rows ]
-    colMarginsConstraints = concat
+    colMarginsConstraints = 
       [ EQ { 
              lhs = fromList [ (stack n (i, j), 1) | i <- rows ]
            , rhs = nu !! (j-1) 

@@ -28,7 +28,26 @@ import           Linear.Simplex.Types            (
 type IntIntMap = Map (Int, Int) Rational
 
 stack :: Int -> (Int, Int) -> Int
-stack ncol (i, j) = (i - 1) * ncol + j 
+stack ncol (i, j) = (i - 1) * ncol + j
+
+kantorovich :: 
+  [Rational] -> [Rational] -> ((Int, Int) -> Rational) -> IO (Maybe Result)
+kantorovich mu nu dist = twoPhaseSimplex objFunc polyConstraints
+  where
+    m = length mu
+    n = length nu
+    objFunc = objectiveFunction m n dist
+    polyConstraints = constraints mu nu 
+
+objectiveFunction :: 
+  Int -> Int -> ((Int, Int) -> Rational) -> ObjectiveFunction
+objectiveFunction m n dist = Min 
+  { 
+    objective = fromList [ (stack n (i, j), dist (i, j)) | i <- rows, j <- cols ]
+  }
+  where
+    rows = [ 1 .. m ]
+    cols = [ 1 .. n ]
 
 constraints :: [Rational] -> [Rational] -> [PolyConstraint]
 constraints mu nu = 

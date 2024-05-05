@@ -6,17 +6,30 @@ module Math.Optimization.Kantorovich
   ) where
 import           Prelude                hiding   ( EQ )
 import           Control.Monad.Logger            (
-                                                   MonadLoggerIO
-                                                 , LoggingT
-                                                 , runStdoutLoggingT
+--                                                   MonadLoggerIO
+--                                                 , LoggingT
+                                                   runStdoutLoggingT
+--                                                 , NoLoggingT ( .. )
+                                                 , filterLogger
                                                  )
+import           Data.Array                      (
+                                                   Array
+                                                 , array
+                                                 , bounds
+                                                 )
+import qualified Data.Array                      as DA
 import           Data.Map.Strict                 ( 
                                                    Map
                                                  , fromList
+                                                 , toList
                                                  , mapKeys
                                                  , singleton
                                                  )
 import qualified Data.Map.Strict                 as DM
+import           Data.Matrix                     (
+                                                   fromLists
+                                                 , prettyMatrix
+                                                 )
 import           Data.Maybe                      (
                                                    isJust
                                                  , fromJust
@@ -24,29 +37,31 @@ import           Data.Maybe                      (
 import           Data.Ratio                      (
                                                    (%)
                                                  )
-import           Data.Tuple.Extra                (
-                                                   both
-                                                 )
+-- import           Data.Tuple.Extra                (
+--                                                    both
+--                                                  )
 import           Linear.Simplex.Solver.TwoPhase  (
                                                    twoPhaseSimplex
                                                  )
 import           Linear.Simplex.Types            (
                                                    Var
                                                  , SimplexNum
-                                                 , FeasibleSystem ( .. )
+--                                                 , FeasibleSystem ( .. )
                                                  , Result ( .. )
                                                  , VarLitMap
-                                                 , VarLitMapSum
+--                                                 , VarLitMapSum
                                                  , PolyConstraint ( .. )
                                                  , ObjectiveFunction ( .. )
-                                                 , DictValue ( .. )
-                                                 , Dict
+--                                                 , DictValue ( .. )
+--                                                 , Dict
                                                  )
-import           Linear.Simplex.Util             (
-                                                   extractObjectiveValue
-                                                 )
+-- import           Linear.Simplex.Util             (
+--                                                    extractObjectiveValue
+--                                                  )
 
-type IntIntMap = Map (Int, Int) Rational
+type KantorovichValue    = Rational
+type KantorovichSolution = Array (Int, Int) Rational
+type KantorovichResult   = (KantorovichValue, KantorovichSolution) 
 
 stack :: Int -> (Int, Int) -> Int
 stack ncol (i, j) = (i - 1) * ncol + j
@@ -56,38 +71,51 @@ unstack ncol k = (q + 1, r + 1)
   where
     (q, r) = quotRem (k-1) ncol
 
-getObjectiveValueAndSolution :: Int -> Maybe Result -> Maybe (Rational, Map (Int, Int) Rational)
-getObjectiveValueAndSolution ncol maybeResult = 
-  if isJust maybeResult
-    then 
-      Just 
-        (
-          fromJust $ extractObjectiveValue maybeResult
-        , fromJust $ fmap f maybeResult
-        )
-    else
-      Nothing
+prettyKantorovichSolution :: Maybe KantorovichResult -> String
+prettyKantorovichSolution maybeKantorovichResult = 
+  if isJust maybeKantorovichResult then prettyMatrix m else ""
   where
-    f :: Result -> Map (Int, Int) Rational
-    f (Result var varLitMap) = mapKeys (unstack ncol) (DM.delete var varLitMap)
+
+    kantorovichSolution = snd $ fromJust maybeKantorovichResult
+    (_, (nrow, ncol)) = bounds kantorovichSolution
+    m = fromLists 
+      [ 
+        [ kantorovichSolution DA.! (i, j) | j <- [ 1 .. ncol ] ] 
+          | i <- [ 1 .. nrow ] 
+      ]
+
+getObjectiveValueAndSolution :: (Int, Int) -> Maybe Result -> Maybe KantorovichResult
+getObjectiveValueAndSolution (nrow, ncol) maybeResult = 
+  case maybeResult of
+    Just (Result var varLitMap) -> 
+      Just (
+             varLitMap DM.! var
+           , array ((1, 1), (nrow, ncol)) ( toList $ 
+              mapKeys (unstack ncol) (DM.delete var varLitMap) )
+           )
+    Nothing -> Nothing
 
 kantorovich :: 
-  [(a, Rational)] -> [(a, Rational)] -> ((a, a) -> Rational) -> IO (Maybe (Rational, Map (Int, Int) Rational))
-kantorovich wxs wys dist = do 
-  maybeResult <- runStdoutLoggingT $ twoPhaseSimplex objFunc polyConstraints
-  return $ getObjectiveValueAndSolution ncol maybeResult
+  [(a, Rational)] -> [(a, Rational)] -> ((a, a) -> Rational) -> Bool 
+  -> IO (Maybe KantorovichResult)
+kantorovich wxs wys dist info = do 
+  maybeResult <- runStdoutLoggingT $ filterLogger (\_ _ -> info) $ 
+                  twoPhaseSimplex objFunc polyConstraints
+  return $ getObjectiveValueAndSolution (nrow, ncol) maybeResult
   where
+    nrow = length wxs
     ncol = length wys
     (xs, mu) = unzip wxs
     (ys, nu) = unzip wys
-    objFunc = objectiveFunction xs ys dist
-    polyConstraints = constraints mu nu 
+    objFunc = kantorovichObjectiveFunction xs ys dist
+    polyConstraints = kantorovichConstraints mu nu 
 
-objectiveFunction :: 
+kantorovichObjectiveFunction :: 
   [a] -> [a] -> ((a, a) -> Rational) -> ObjectiveFunction
-objectiveFunction xs ys dist = Min 
+kantorovichObjectiveFunction xs ys dist = Min 
   { 
-    objective = fromList [ (stack n (i, j), dist (xs !! (i-1), ys !! (j-1))) | i <- rows, j <- cols ]
+    objective = fromList 
+      [ (stack n (i, j), dist (xs!!(i-1), ys!!(j-1))) | i <- rows, j <- cols ]
   }
   where
     m = length xs
@@ -95,8 +123,8 @@ objectiveFunction xs ys dist = Min
     rows = [ 1 .. m ]
     cols = [ 1 .. n ]
 
-constraints :: [Rational] -> [Rational] -> [PolyConstraint]
-constraints mu nu = 
+kantorovichConstraints :: [Rational] -> [Rational] -> [PolyConstraint]
+kantorovichConstraints mu nu = 
   positivityConstraints ++ rowMarginsConstraints ++ colMarginsConstraints
   where
     m = length mu
@@ -126,4 +154,5 @@ mu, nu :: [Rational]
 mu = [1%7, 2%7, 4%7]
 nu = [1%4, 1%4, 1%2]
 
-test = kantorovich (zip [0 ..] mu) (zip [0 ..] nu) dist01
+test :: IO (Maybe KantorovichResult)
+test = kantorovich (zip [0 ..] mu) (zip [0 ..] nu) dist01 True

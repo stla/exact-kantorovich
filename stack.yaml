@@ -42,6 +42,7 @@ packages:
 #
 extra-deps:
   - simplex-method-0.2.0.0@sha256:ccfc12e88789d4e11935061d743b757ff7f6424c2f8f39ec8194cfe7a9af7bce,2398
+  - text-2.0.2@sha256:71b5fa8c64d3c1fd0a08f993463220867b08290a2256e94b0952bf0e8f5a45cc,9905
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

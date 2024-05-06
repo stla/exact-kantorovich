@@ -2,7 +2,7 @@ module Math.Optimization.Kantorovich
   ( 
     kantorovich
   , test
-  , getObjectiveValueAndSolution
+  , prettyKantorovichSolution
   ) where
 import           Prelude                hiding   ( EQ )
 import           Control.Monad.Logger            (
@@ -19,8 +19,8 @@ import           Data.Array                      (
                                                  )
 import qualified Data.Array                      as DA
 import           Data.Map.Strict                 ( 
-                                                   Map
-                                                 , fromList
+--                                                   Map
+                                                   fromList
                                                  , toList
                                                  , mapKeys
                                                  , singleton
@@ -44,11 +44,11 @@ import           Linear.Simplex.Solver.TwoPhase  (
                                                    twoPhaseSimplex
                                                  )
 import           Linear.Simplex.Types            (
-                                                   Var
-                                                 , SimplexNum
+--                                                   Var
+--                                                 , SimplexNum
 --                                                 , FeasibleSystem ( .. )
-                                                 , Result ( .. )
-                                                 , VarLitMap
+                                                   Result ( .. )
+--                                                 , VarLitMap
 --                                                 , VarLitMapSum
                                                  , PolyConstraint ( .. )
                                                  , ObjectiveFunction ( .. )
@@ -71,55 +71,60 @@ unstack ncol k = (q + 1, r + 1)
   where
     (q, r) = quotRem (k-1) ncol
 
-prettyKantorovichSolution :: Maybe KantorovichResult -> String
+prettyKantorovichSolution :: 
+     Maybe KantorovichResult -- ^ an output of the `kantorovich` function
+  -> String
 prettyKantorovichSolution maybeKantorovichResult = 
   if isJust maybeKantorovichResult then prettyMatrix m else ""
   where
-
     kantorovichSolution = snd $ fromJust maybeKantorovichResult
     (_, (nrow, ncol)) = bounds kantorovichSolution
     m = fromLists 
       [ 
-        [ kantorovichSolution DA.! (i, j) | j <- [ 1 .. ncol ] ] 
-          | i <- [ 1 .. nrow ] 
+        [ 
+          kantorovichSolution DA.! (i, j) | j <- [ 1 .. ncol ]
+        ] 
+        | i <- [ 1 .. nrow ] 
       ]
 
-getObjectiveValueAndSolution :: (Int, Int) -> Maybe Result -> Maybe KantorovichResult
-getObjectiveValueAndSolution (nrow, ncol) maybeResult = 
-  case maybeResult of
-    Just (Result var varLitMap) -> 
-      Just (
-             varLitMap DM.! var
-           , array ((1, 1), (nrow, ncol)) ( toList $ 
-              mapKeys (unstack ncol) (DM.delete var varLitMap) )
-           )
-    Nothing -> Nothing
-
 kantorovich :: 
-  [(a, Rational)] -> [(a, Rational)] -> ((a, a) -> Rational) -> Bool 
+     [(a, Rational)]      -- ^ first random variable, given by its weighted values
+  -> [(b, Rational)]      -- ^ second random variable, given by its weighted values
+  -> ((a, b) -> Rational) -- ^ distance function taking rational values
+  -> Bool                 -- ^ whether to print the details of the simplex algorithm to stdout
   -> IO (Maybe KantorovichResult)
-kantorovich wxs wys dist info = do 
+kantorovich was wbs dist info = do 
   maybeResult <- runStdoutLoggingT $ filterLogger (\_ _ -> info) $ 
                   twoPhaseSimplex objFunc polyConstraints
-  return $ getObjectiveValueAndSolution (nrow, ncol) maybeResult
+  return $ getObjectiveValueAndSolution maybeResult
   where
-    nrow = length wxs
-    ncol = length wys
-    (xs, mu) = unzip wxs
-    (ys, nu) = unzip wys
-    objFunc = kantorovichObjectiveFunction xs ys dist
-    polyConstraints = kantorovichConstraints mu nu 
+    nrow = length was
+    ncol = length wbs
+    (as, mu) = unzip was
+    (bs, nu) = unzip wbs
+    objFunc = kantorovichObjectiveFunction as bs dist
+    polyConstraints = kantorovichConstraints mu nu
+    getObjectiveValueAndSolution maybeResult = 
+      case maybeResult of
+        Just (Result var varLitMap) -> 
+          Just (
+                 varLitMap DM.! var
+               , array ((1, 1), (nrow, ncol)) ( toList $ 
+                  mapKeys (unstack ncol) (DM.delete var varLitMap) )
+               )
+        Nothing -> Nothing
+
 
 kantorovichObjectiveFunction :: 
-  [a] -> [a] -> ((a, a) -> Rational) -> ObjectiveFunction
-kantorovichObjectiveFunction xs ys dist = Min 
+  [a] -> [b] -> ((a, b) -> Rational) -> ObjectiveFunction
+kantorovichObjectiveFunction as bs dist = Min 
   { 
     objective = fromList 
-      [ (stack n (i, j), dist (xs!!(i-1), ys!!(j-1))) | i <- rows, j <- cols ]
+      [ (stack n (i, j), dist (as!!(i-1), bs!!(j-1))) | i <- rows, j <- cols ]
   }
   where
-    m = length xs
-    n = length ys
+    m = length as
+    n = length bs
     rows = [ 1 .. m ]
     cols = [ 1 .. n ]
 
@@ -132,27 +137,31 @@ kantorovichConstraints mu nu =
     rows = [ 1 .. m ]
     cols = [ 1 .. n ]
     positivityConstraints = 
-      [ GEQ { lhs = singleton (stack n (i, j)) 1, rhs = 0 } 
-            | i <- rows, j <- cols ]
+      [ 
+        GEQ { 
+              lhs = singleton (stack n (i, j)) 1, rhs = 0 
+            } 
+        | i <- rows, j <- cols 
+      ]
     rowMarginsConstraints = 
-      [ EQ { 
+      [ 
+        EQ { 
              lhs = fromList [ (stack n (i, j), 1) | j <- cols ]
            , rhs = mu !! (i-1) 
            } 
-        | i <- rows ]
+        | i <- rows 
+      ]
     colMarginsConstraints = 
-      [ EQ { 
+      [ 
+        EQ { 
              lhs = fromList [ (stack n (i, j), 1) | i <- rows ]
            , rhs = nu !! (j-1) 
            } 
-        | j <- cols ]
+        | j <- cols 
+      ]
 
 dist01 :: (Int, Int) -> Rational
 dist01 (i, j) = toRational (fromEnum (i /= j))
 
-mu, nu :: [Rational] 
-mu = [1%7, 2%7, 4%7]
-nu = [1%4, 1%4, 1%2]
-
 test :: IO (Maybe KantorovichResult)
-test = kantorovich (zip [0 ..] mu) (zip [0 ..] nu) dist01 True
+test = kantorovich (zip [0 ..] [1%7, 2%7, 4%7]) (zip [0 ..] [1%4, 1%4, 1%2]) dist01 True

@@ -2,15 +2,15 @@ cabal-version:       2.2
 
 name:                exact-kantorovich
 version:             0.1.0.0
--- synopsis:
--- description:
-homepage:            https://github.com/githubuser/exact-kantorovich#readme
+synopsis:            Exact Kantorovich distance between finite probability measures.
+description:         This small package allows to compute the exact Kantorovich distance between two finite probability measures. This assumes that the probability masses are rational numbers and that the distance function takes rational values only.
+homepage:            https://github.com/stla/exact-kantorovich#readme
 license:             BSD-3-Clause
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2024 Author name here
-category:            Web
+author:              Stéphane Laurent
+maintainer:          laurent_step@outlook.fr
+copyright:           2024 Stéphane Laurent
+category:            Math, Optimization
 build-type:          Simple
 extra-source-files:  README.md
                      CHANGELOG.md
@@ -22,7 +22,6 @@ library
                      , simplex-method >= 0.2.0.0 && < 0.3
                      , containers >= 0.6.5.1 && < 0.7
                      , monad-logger >= 0.3.40 && < 0.4
---                     , extra >= 1.7 && < 1.8
                      , matrix >= 0.3.6.0 && < 0.4
                      , array >= 0.5.5.0 && < 0.6
   default-language:    Haskell2010
@@ -38,4 +37,4 @@ library
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/exact-kantorovich
+  location: https://github.com/stla/exact-kantorovich

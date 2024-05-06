@@ -1,15 +1,26 @@
+{-|
+Module      : Math.Optimization.Kantorovich
+Description : Exact Kantorovich distance.
+Copyright   : (c) Stéphane Laurent, 2024
+License     : BSD-3-Clause
+Maintainer  : laurent_step@outlook.fr
+
+Computes the exact Kantorovich distance between two finite probability measures. 
+This assumes that the probability masses are rational numbers and that the 
+distance function takes rational values only.
+-}
 module Math.Optimization.Kantorovich
   ( 
-    kantorovich
+    KantorovichValue
+  , KantorovichSolution
+  , KantorovichResult
+  , kantorovich
   , test
   , prettyKantorovichSolution
   ) where
 import           Prelude                hiding   ( EQ )
 import           Control.Monad.Logger            (
---                                                   MonadLoggerIO
---                                                 , LoggingT
                                                    runStdoutLoggingT
---                                                 , NoLoggingT ( .. )
                                                  , filterLogger
                                                  )
 import           Data.Array                      (
@@ -19,7 +30,6 @@ import           Data.Array                      (
                                                  )
 import qualified Data.Array                      as DA
 import           Data.Map.Strict                 ( 
---                                                   Map
                                                    fromList
                                                  , toList
                                                  , mapKeys
@@ -37,27 +47,14 @@ import           Data.Maybe                      (
 import           Data.Ratio                      (
                                                    (%)
                                                  )
--- import           Data.Tuple.Extra                (
---                                                    both
---                                                  )
 import           Linear.Simplex.Solver.TwoPhase  (
                                                    twoPhaseSimplex
                                                  )
 import           Linear.Simplex.Types            (
---                                                   Var
---                                                 , SimplexNum
---                                                 , FeasibleSystem ( .. )
                                                    Result ( .. )
---                                                 , VarLitMap
---                                                 , VarLitMapSum
                                                  , PolyConstraint ( .. )
                                                  , ObjectiveFunction ( .. )
---                                                 , DictValue ( .. )
---                                                 , Dict
                                                  )
--- import           Linear.Simplex.Util             (
---                                                    extractObjectiveValue
---                                                  )
 
 type KantorovichValue    = Rational
 type KantorovichSolution = Array (Int, Int) Rational

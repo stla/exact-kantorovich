@@ -111,7 +111,6 @@ kantorovich was wbs dist info = do
                )
         Nothing -> Nothing
 
-
 kantorovichObjectiveFunction :: 
   [a] -> [b] -> ((a, b) -> Rational) -> ObjectiveFunction
 kantorovichObjectiveFunction as bs dist = Min 
@@ -158,7 +157,7 @@ kantorovichConstraints mu nu =
       ]
 
 dist01 :: (Int, Int) -> Rational
-dist01 (i, j) = toRational (fromEnum (i /= j))
+dist01 (i, j) = toRational $ abs (i - j)
 
 test :: IO (Maybe KantorovichResult)
 test = kantorovich (zip [0 ..] [1%7, 2%7, 4%7]) (zip [0 ..] [1%4, 1%4, 1%2]) dist01 True

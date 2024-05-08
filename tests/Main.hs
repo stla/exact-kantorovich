@@ -1,4 +1,4 @@
-module Main (main) where
+module Main ( main ) where
 import Data.Map.Strict                (
                                         Map 
                                       , elems
@@ -34,11 +34,11 @@ main = defaultMain $
         dist (i, j) = toRational $ abs (i - j)
       maybeResult <- kantorovich mu nu dist False
       let 
-        result = fromJust maybeResult
-        dists = mapWithKey (\ij _ -> dist ij) (snd result)
+        result@(value, solution) = fromJust maybeResult
+        dists = mapWithKey (\ij _ -> dist ij) solution
       assertEqual "" 
         (  
-          fst $ result
+          value
         , checkSolution result dists
         ) 
         (5%28, True)

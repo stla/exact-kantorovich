@@ -76,9 +76,7 @@ stack :: Int -> (Int, Int) -> Int
 stack ncol (i, j) = (i - 1) * ncol + j
 
 unstack :: Int -> Int -> (Int, Int)
-unstack ncol k = (q, r)
-  where
-    (q, r) = quotRem (k-1) ncol
+unstack ncol k = quotRem (k-1) ncol
 
 -- | Prints the random variable representing the Kantorovich solution in the style
 -- of a matrix.
@@ -125,7 +123,8 @@ kantorovich rvA rvB dist info = do
         Just (Result var varLitMap) -> 
           Just (
                  varLitMap DM.! var
-               , mapKeys (\k -> (((!!) as) *** ((!!) bs)) (unstack ncol k)) (DM.delete var varLitMap) 
+               , mapKeys (\k -> (((!!) as) *** ((!!) bs)) (unstack ncol k)) 
+                          (DM.delete var varLitMap) 
                )
         Nothing -> Nothing
 
@@ -137,9 +136,8 @@ kantorovichObjectiveFunction as bs dist = Min
       [ (stack n (i, j), dist (as!!(i-1), bs!!(j-1))) | i <- rows, j <- cols ]
   }
   where
-    m = length as
     n = length bs
-    rows = [ 1 .. m ]
+    rows = [ 1 .. length as ]
     cols = [ 1 .. n ]
 
 kantorovichConstraints :: [Rational] -> [Rational] -> [PolyConstraint]

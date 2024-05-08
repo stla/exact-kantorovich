@@ -11,28 +11,28 @@ distance function takes rational values only.
 -}
 module Math.Optimization.Kantorovich
   ( 
-    KantorovichValue
+    RandomVariable
+  , KantorovichValue
   , KantorovichSolution
   , KantorovichResult
   , kantorovich
   , prettyKantorovichSolution
+  , test
   ) where
 import           Prelude                hiding   ( EQ )
 import           Control.Monad.Logger            (
                                                    runStdoutLoggingT
                                                  , filterLogger
                                                  )
-import           Data.Array                      (
-                                                   Array
-                                                 , array
-                                                 , bounds
+import           Data.List.Extra                 (
+                                                   nubSort
                                                  )
-import qualified Data.Array                      as DA
 import           Data.Map.Strict                 ( 
                                                    fromList
                                                  , toList
                                                  , mapKeys
                                                  , singleton
+                                                 , Map
                                                  )
 import qualified Data.Map.Strict                 as DM
 import           Data.Matrix                     (
@@ -42,6 +42,9 @@ import           Data.Matrix                     (
 import           Data.Maybe                      (
                                                    isJust
                                                  , fromJust
+                                                 )
+import           Data.Tuple.Extra                (
+                                                   (***)
                                                  )
 import           Linear.Simplex.Solver.TwoPhase  (
                                                    twoPhaseSimplex
@@ -54,9 +57,14 @@ import           Linear.Simplex.Types            (
 import           Linear.Simplex.Util             (
                                                    simplifySystem
                                                  )
+import Data.Ratio ( (%) )
+
+-- | A random variable is defined as a map from a set to the set of rational
+-- numbers. It maps an element to its probability mass.
+type RandomVariable a = Map a Rational 
 
 -- | Type for the value of the Kantorovich distance.
-type KantorovichValue    = Rational
+type KantorovichValue = Rational
 
 -- | Type for the solution of the underlying linear programming problem used 
 -- to compute the Kantorovich distance. The two probability measures are the
@@ -67,53 +75,58 @@ type KantorovichValue    = Rational
 -- distributed. The rational number at index @(i, j)@ of this array is the 
 -- probability mass of the pair made of the @i@-th element of the first set 
 -- and the @j@-th element of the second set.
-type KantorovichSolution = Array (Int, Int) Rational
+type KantorovichSolution a b = RandomVariable (a, b)
 
 -- | Type for the result of the `kantorovich` function.
-type KantorovichResult   = (KantorovichValue, KantorovichSolution) 
+type KantorovichResult a b = (KantorovichValue, KantorovichSolution a b) 
 
 stack :: Int -> (Int, Int) -> Int
 stack ncol (i, j) = (i - 1) * ncol + j
 
 unstack :: Int -> Int -> (Int, Int)
-unstack ncol k = (q + 1, r + 1)
+unstack ncol k = (q, r)
   where
     (q, r) = quotRem (k-1) ncol
 
 -- | Prints the array representing the Kantorovich solution in the style
 -- of a matrix.
 prettyKantorovichSolution :: 
-     Maybe KantorovichResult -- ^ an output of the `kantorovich` function
+  (Ord a, Ord b)
+  => Maybe (KantorovichResult a b) -- ^ an output of the `kantorovich` function
   -> String
 prettyKantorovichSolution maybeKantorovichResult = 
   if isJust maybeKantorovichResult then prettyMatrix m else ""
   where
     kantorovichSolution = snd $ fromJust maybeKantorovichResult
-    (_, (nrow, ncol)) = bounds kantorovichSolution
+    pairs = DM.keys kantorovichSolution
+    (rows, cols) = (nubSort *** nubSort) (unzip pairs)
     m = fromLists 
       [ 
         [ 
-          kantorovichSolution DA.! (i, j) | j <- [ 1 .. ncol ]
+          kantorovichSolution DM.! (i, j) | j <- cols
         ] 
-        | i <- [ 1 .. nrow ] 
+        | i <- rows 
       ]
 
 -- | Kantorovich distance between two probability measures (random variables).
 kantorovich :: 
-     [(a, Rational)]      -- ^ first random variable, given by its weighted values
-  -> [(b, Rational)]      -- ^ second random variable, given by its weighted values
+  (Ord a, Ord b)
+  => RandomVariable a     -- ^ first random variable
+  -> RandomVariable b     -- ^ second random variable
   -> ((a, b) -> Rational) -- ^ distance function taking /positive/ rational values
   -> Bool                 -- ^ whether to print the details of the simplex algorithm to stdout
-  -> IO (Maybe KantorovichResult)
-kantorovich was wbs dist info = do 
+  -> IO (Maybe (KantorovichResult a b))
+kantorovich rvA rvB dist info = do 
   maybeResult <- runStdoutLoggingT $ filterLogger (\_ _ -> info) $ 
                   twoPhaseSimplex objFunc polyConstraints
   return $ getObjectiveValueAndSolution maybeResult
   where
-    nrow = length was
-    ncol = length wbs
-    (as, mu) = unzip was
-    (bs, nu) = unzip wbs
+    nrow = DM.size rvA
+    ncol = DM.size rvB
+    as = DM.keys rvA
+    mu = DM.elems rvA
+    bs = DM.keys rvB
+    nu = DM.elems rvB
     objFunc = kantorovichObjectiveFunction as bs dist
     polyConstraints = kantorovichConstraints mu nu
     getObjectiveValueAndSolution maybeResult = 
@@ -121,8 +134,7 @@ kantorovich was wbs dist info = do
         Just (Result var varLitMap) -> 
           Just (
                  varLitMap DM.! var
-               , array ((1, 1), (nrow, ncol)) ( toList $ 
-                  mapKeys (unstack ncol) (DM.delete var varLitMap) )
+               , mapKeys (\k -> (((!!) as) *** ((!!) bs)) (unstack ncol k)) (DM.delete var varLitMap) 
                )
         Nothing -> Nothing
 
@@ -171,3 +183,6 @@ kantorovichConstraints mu nu =
            } 
         | j <- cols 
       ]
+
+test :: IO (Maybe (KantorovichResult Int Int))
+test = kantorovich (DM.fromList $ zip [1, 2, 3] [1%7, 2%7, 4%7]) (DM.fromList $ zip [1, 2, 3] [1%4, 1%4, 1%2]) (\(i, j) -> toRational $ abs (i - j)) False

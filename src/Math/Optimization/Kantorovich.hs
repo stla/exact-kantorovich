@@ -17,7 +17,6 @@ module Math.Optimization.Kantorovich
   , KantorovichResult
   , kantorovich
   , prettyKantorovichSolution
-  , test
   ) where
 import           Prelude                hiding   ( EQ )
 import           Control.Monad.Logger            (
@@ -56,7 +55,6 @@ import           Linear.Simplex.Types            (
 import           Linear.Simplex.Util             (
                                                    simplifySystem
                                                  )
-import Data.Ratio ( (%) )
 
 -- | A random variable is defined as a map from a set to the set of rational
 -- numbers. It maps an element to its probability mass.
@@ -181,6 +179,3 @@ kantorovichConstraints mu nu =
            } 
         | j <- cols 
       ]
-
-test :: IO (Maybe (KantorovichResult Int Int))
-test = kantorovich (DM.fromList $ zip [1, 2, 3] [1%7, 2%7, 4%7]) (DM.fromList $ zip [1, 2, 3] [1%4, 1%4, 1%2]) (\(i, j) -> toRational $ abs (i - j)) False

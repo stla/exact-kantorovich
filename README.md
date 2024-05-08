@@ -50,9 +50,9 @@ result <- kantorovich mu nu dist False
 The output of the `kantorovich` function has type 
 `IO (Maybe (KantorovichResult a b))` where here `a = b = Int` and the type 
 `KantorovichResult a b` is the pair of types 
-`(Rational, RandomVariable (a, b) Rational)`. The first 
-element of an object of a `KantorovichResult` object represents the value of 
-the Kantorovich distance and the second element represents a solution of the 
+`(Rational, RandomVariable (a, b))`. The first element of an object of a 
+`KantorovichResult` object represents the value of the Kantorovich distance 
+and the second element represents a solution of the 
 underlying linear programming problem, that is to say a joining of the two 
 probability measures that achieves the Kantorovich distance. 
 

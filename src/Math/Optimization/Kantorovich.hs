@@ -15,7 +15,6 @@ module Math.Optimization.Kantorovich
   , KantorovichSolution
   , KantorovichResult
   , kantorovich
-  , test
   , prettyKantorovichSolution
   ) where
 import           Prelude                hiding   ( EQ )
@@ -44,9 +43,6 @@ import           Data.Maybe                      (
                                                    isJust
                                                  , fromJust
                                                  )
-import           Data.Ratio                      (
-                                                   (%)
-                                                 )
 import           Linear.Simplex.Solver.TwoPhase  (
                                                    twoPhaseSimplex
                                                  )
@@ -55,9 +51,25 @@ import           Linear.Simplex.Types            (
                                                  , PolyConstraint ( .. )
                                                  , ObjectiveFunction ( .. )
                                                  )
+import           Linear.Simplex.Util             (
+                                                   simplifySystem
+                                                 )
 
+-- | Type for the value of the Kantorovich distance.
 type KantorovichValue    = Rational
+
+-- | Type for the solution of the underlying linear programming problem used 
+-- to compute the Kantorovich distance. The two probability measures are the
+-- distributions of two random variables, and the solution is a joining of 
+-- these two random variables. It is then represented by an array indexed by 
+-- the Cartesian product of @{1, ..., m}@ and @{1, ..., n}@ where @m@ and @n@ 
+-- are the cardinalities of the sets on which the two random variables are 
+-- distributed. The rational number at index @(i, j)@ of this array is the 
+-- probability mass of the pair made of the @i@-th element of the first set 
+-- and the @j@-th element of the second set.
 type KantorovichSolution = Array (Int, Int) Rational
+
+-- | Type for the result of the `kantorovich` function.
 type KantorovichResult   = (KantorovichValue, KantorovichSolution) 
 
 stack :: Int -> (Int, Int) -> Int
@@ -68,6 +80,8 @@ unstack ncol k = (q + 1, r + 1)
   where
     (q, r) = quotRem (k-1) ncol
 
+-- | Prints the array representing the Kantorovich solution in the style
+-- of a matrix.
 prettyKantorovichSolution :: 
      Maybe KantorovichResult -- ^ an output of the `kantorovich` function
   -> String
@@ -84,10 +98,11 @@ prettyKantorovichSolution maybeKantorovichResult =
         | i <- [ 1 .. nrow ] 
       ]
 
+-- | Kantorovich distance between two probability measures (random variables).
 kantorovich :: 
      [(a, Rational)]      -- ^ first random variable, given by its weighted values
   -> [(b, Rational)]      -- ^ second random variable, given by its weighted values
-  -> ((a, b) -> Rational) -- ^ distance function taking rational values
+  -> ((a, b) -> Rational) -- ^ distance function taking /positive/ rational values
   -> Bool                 -- ^ whether to print the details of the simplex algorithm to stdout
   -> IO (Maybe KantorovichResult)
 kantorovich was wbs dist info = do 
@@ -126,13 +141,14 @@ kantorovichObjectiveFunction as bs dist = Min
 
 kantorovichConstraints :: [Rational] -> [Rational] -> [PolyConstraint]
 kantorovichConstraints mu nu = 
-  positivityConstraints ++ rowMarginsConstraints ++ colMarginsConstraints
+  simplifySystem $ 
+    positivityConstraints ++ rowMarginsConstraints ++ colMarginsConstraints
   where
     m = length mu
     n = length nu
     rows = [ 1 .. m ]
     cols = [ 1 .. n ]
-    positivityConstraints = 
+    positivityConstraints = -- not useless because simplex-method drops some zeros 
       [ 
         GEQ { 
               lhs = singleton (stack n (i, j)) 1, rhs = 0 
@@ -155,9 +171,3 @@ kantorovichConstraints mu nu =
            } 
         | j <- cols 
       ]
-
-dist01 :: (Int, Int) -> Rational
-dist01 (i, j) = toRational $ abs (i - j)
-
-test :: IO (Maybe KantorovichResult)
-test = kantorovich (zip [0 ..] [1%7, 2%7, 4%7]) (zip [0 ..] [1%4, 1%4, 1%2]) dist01 True

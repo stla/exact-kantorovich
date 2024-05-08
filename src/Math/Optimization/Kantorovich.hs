@@ -29,7 +29,6 @@ import           Data.List.Extra                 (
                                                  )
 import           Data.Map.Strict                 ( 
                                                    fromList
-                                                 , toList
                                                  , mapKeys
                                                  , singleton
                                                  , Map
@@ -121,7 +120,6 @@ kantorovich rvA rvB dist info = do
                   twoPhaseSimplex objFunc polyConstraints
   return $ getObjectiveValueAndSolution maybeResult
   where
-    nrow = DM.size rvA
     ncol = DM.size rvB
     as = DM.keys rvA
     mu = DM.elems rvA

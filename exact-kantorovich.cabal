@@ -42,7 +42,7 @@ test-suite unit-tests
   Build-Depends:        base >= 4.7 && < 5
                       , tasty >= 1.4 && < 1.5
                       , tasty-hunit >= 0.10 && < 0.11
-                      , array >= 0.5.5.0 && < 0.6
+                      , containers >= 0.6.5.1 && < 0.7
                       , exact-kantorovich
   Default-Language:     Haskell2010
   ghc-options:         -Wall

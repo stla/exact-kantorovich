@@ -64,14 +64,9 @@ type RandomVariable a = Map a Rational
 type KantorovichValue = Rational
 
 -- | Type for the solution of the underlying linear programming problem used 
--- to compute the Kantorovich distance. The two probability measures are the
--- distributions of two random variables, and the solution is a joining of 
--- these two random variables. It is then represented by an array indexed by 
--- the Cartesian product of @{1, ..., m}@ and @{1, ..., n}@ where @m@ and @n@ 
--- are the cardinalities of the sets on which the two random variables are 
--- distributed. The rational number at index @(i, j)@ of this array is the 
--- probability mass of the pair made of the @i@-th element of the first set 
--- and the @j@-th element of the second set.
+-- to compute the Kantorovich distance. The solution is a joining of the two
+-- random variables. It is then a random variable on the Cartesian product of 
+-- the sets on which the two random variables are distributed. 
 type KantorovichSolution a b = RandomVariable (a, b)
 
 -- | Type for the result of the `kantorovich` function.
@@ -85,7 +80,7 @@ unstack ncol k = (q, r)
   where
     (q, r) = quotRem (k-1) ncol
 
--- | Prints the array representing the Kantorovich solution in the style
+-- | Prints the random variable representing the Kantorovich solution in the style
 -- of a matrix.
 prettyKantorovichSolution :: 
   (Ord a, Ord b)

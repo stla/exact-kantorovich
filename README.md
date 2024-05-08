@@ -17,17 +17,21 @@ Let's say you have the two probability measures with masses $(1/7, 2/7, 4/7)$
 and $(1/4, 1/4, 1/2)$, both distributed on the set $\{1, 2, 3\}$, and you want
 to get the Kantorovich distance between them when this set is endowed with the 
 distance function $d(i, j) = |i - j|$. To get it with this package, you will 
-use the `kantorovich` function. It has four arguments. The first two ones are 
-the two lists obtained by zipping the state sets of the two probability 
-measures with their list of masses:
+use the `kantorovich` function. It has four arguments. The first two ones are
+the two random variables corresponding these probability measures, and a random
+variable is defined as a map from its states set to the rational numbers; this
+map assigns to each element its probability mass:
 
 ```haskell
+import Data.Map.Strict ( fromList )
 import Data.Ratio ( (%) )
-mu = zip [1, 2, 3] [1%7, 2%7, 4%7]
-nu = zip [1, 2, 3] [1%4, 1%4, 1%2]
+mu, nu :: RandomVariable Int
+mu = fromList $ zip [1, 2, 3] [1%7, 2%7, 4%7]
+nu = fromList $ zip [1, 2, 3] [1%4, 1%4, 1%2]
 ```
 
-The third one is the distance function; it must return a rational number:
+The third one is the distance function; it must return a *positive* rational 
+number:
 
 ```haskell
 dist :: (Int, Int) -> Rational
@@ -44,8 +48,9 @@ result <- kantorovich mu nu dist False
 ```
 
 The output of the `kantorovich` function has type 
-`IO (Maybe KantorovichResult)` where the type `KantorovichResult` is 
-the pair of types `(Rational, Array (Int, Int) Rational)`. The first 
+`IO (Maybe (KantorovichResult a b))` where here `a = b = Int` and the type 
+`KantorovichResult a b` is the pair of types 
+`(Rational, RandomVariable (a, b) Rational)`. The first 
 element of an object of a `KantorovichResult` object represents the value of 
 the Kantorovich distance and the second element represents a solution of the 
 underlying linear programming problem, that is to say a joining of the two 
